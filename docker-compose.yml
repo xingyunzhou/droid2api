@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  droid2api:
+    build: .
+    container_name: droid2api
+    ports:
+      - "3000:3000"
+    environment:
+      # 必需：设置refresh token
+      - DROID_REFRESH_KEY=${DROID_REFRESH_KEY}
+      # 可选：如果需要修改端口，在config.json中配置
+    volumes:
+      # 可选：持久化auth.json以保存刷新的tokens
+      - ./data:/app/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
