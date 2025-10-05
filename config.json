@@ -1,0 +1,41 @@
+{
+  "port": 3000,
+  "endpoint": [
+    {
+      "name": "openai",
+      "base_url": "https://app.factory.ai/api/llm/o/v1/responses"
+    },
+    {
+      "name": "anthropic",
+      "base_url": "https://app.factory.ai/api/llm/a/v1/messages"
+    }
+  ],
+  "models": [
+    {
+      "name": "Opus 4.1",
+      "id": "claude-opus-4-1-20250805",
+      "type": "anthropic"
+    },
+    {
+      "name": "Sonnet 4",
+      "id": "claude-sonnet-4-20250514",
+      "type": "anthropic"
+    },
+    {
+      "name": "Sonnet 4.5",
+      "id": "claude-sonnet-4-5-20250929",
+      "type": "anthropic"
+    },
+    {
+      "name": "GPT-5",
+      "id": "gpt-5-2025-08-07",
+      "type": "openai"
+    },
+    {
+      "name": "GPT-5-Codex",
+      "id": "gpt-5-codex",
+      "type": "openai"
+    }
+  ],
+  "dev_mode": false
+}

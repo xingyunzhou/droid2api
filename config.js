@@ -1,0 +1,46 @@
+import fs from 'fs';
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+let config = null;
+
+export function loadConfig() {
+  try {
+    const configPath = path.join(__dirname, 'config.json');
+    const configData = fs.readFileSync(configPath, 'utf-8');
+    config = JSON.parse(configData);
+    return config;
+  } catch (error) {
+    throw new Error(`Failed to load config.json: ${error.message}`);
+  }
+}
+
+export function getConfig() {
+  if (!config) {
+    loadConfig();
+  }
+  return config;
+}
+
+export function getModelById(modelId) {
+  const cfg = getConfig();
+  return cfg.models.find(m => m.id === modelId);
+}
+
+export function getEndpointByType(type) {
+  const cfg = getConfig();
+  return cfg.endpoint.find(e => e.name === type);
+}
+
+export function isDevMode() {
+  const cfg = getConfig();
+  return cfg.dev_mode === true;
+}
+
+export function getPort() {
+  const cfg = getConfig();
+  return cfg.port || 3000;
+}
