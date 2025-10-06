@@ -259,8 +259,112 @@ async function handleDirectResponses(req, res) {
   }
 }
 
+// 直接转发 Anthropic 请求（不做格式转换）
+async function handleDirectMessages(req, res) {
+  logInfo('POST /v1/messages');
+  
+  try {
+    const anthropicRequest = req.body;
+    const modelId = anthropicRequest.model;
+
+    if (!modelId) {
+      return res.status(400).json({ error: 'model is required' });
+    }
+
+    const model = getModelById(modelId);
+    if (!model) {
+      return res.status(404).json({ error: `Model ${modelId} not found` });
+    }
+
+    // 只允许 anthropic 类型端点
+    if (model.type !== 'anthropic') {
+      return res.status(400).json({ 
+        error: 'Invalid endpoint type',
+        message: `/v1/messages 接口只支持 anthropic 类型端点，当前模型 ${modelId} 是 ${model.type} 类型`
+      });
+    }
+
+    const endpoint = getEndpointByType(model.type);
+    if (!endpoint) {
+      return res.status(500).json({ error: `Endpoint type ${model.type} not found` });
+    }
+
+    logInfo(`Direct forwarding to ${model.type} endpoint: ${endpoint.base_url}`);
+
+    // Get API key
+    let authHeader;
+    try {
+      authHeader = await getApiKey();
+    } catch (error) {
+      logError('Failed to get API key', error);
+      return res.status(500).json({ 
+        error: 'API key not available',
+        message: 'Failed to get or refresh API key. Please check server logs.'
+      });
+    }
+
+    const clientHeaders = req.headers;
+    
+    // 获取 headers，但请求体不做任何转换
+    const isStreaming = anthropicRequest.stream !== false;
+    const headers = getAnthropicHeaders(authHeader, clientHeaders, isStreaming);
+
+    logRequest('POST', endpoint.base_url, headers, anthropicRequest);
+
+    // 直接转发原始请求
+    const response = await fetch(endpoint.base_url, {
+      method: 'POST',
+      headers,
+      body: JSON.stringify(anthropicRequest)  // 不做任何转换，直接转发
+    });
+
+    logInfo(`Response status: ${response.status}`);
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      logError(`Endpoint error: ${response.status}`, new Error(errorText));
+      return res.status(response.status).json({ 
+        error: `Endpoint returned ${response.status}`,
+        details: errorText 
+      });
+    }
+
+    if (isStreaming) {
+      // 直接转发流式响应，不做任何转换
+      res.setHeader('Content-Type', 'text/event-stream');
+      res.setHeader('Cache-Control', 'no-cache');
+      res.setHeader('Connection', 'keep-alive');
+
+      try {
+        // 直接将原始响应流转发给客户端
+        for await (const chunk of response.body) {
+          res.write(chunk);
+        }
+        res.end();
+        logInfo('Stream forwarded successfully');
+      } catch (streamError) {
+        logError('Stream error', streamError);
+        res.end();
+      }
+    } else {
+      // 直接转发非流式响应，不做任何转换
+      const data = await response.json();
+      logResponse(200, null, data);
+      res.json(data);
+    }
+
+  } catch (error) {
+    logError('Error in /v1/messages', error);
+    res.status(500).json({ 
+      error: 'Internal server error',
+      message: error.message 
+    });
+  }
+}
+
 // 注册路由
 router.post('/v1/chat/completions', handleChatCompletions);
 router.post('/v1/responses', handleDirectResponses);
+router.post('/v1/messages', handleDirectMessages);
 
 export default router;
