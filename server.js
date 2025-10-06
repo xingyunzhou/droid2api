@@ -29,7 +29,8 @@ app.get('/', (req, res) => {
     description: 'OpenAI Compatible API Proxy',
     endpoints: [
       'GET /v1/models',
-      'POST /v1/chat/completions'
+      'POST /v1/chat/completions',
+      'POST /v1/responses'
     ]
   });
 });
@@ -86,7 +87,8 @@ app.use((req, res, next) => {
     timestamp: errorInfo.timestamp,
     availableEndpoints: [
       'GET /v1/models',
-      'POST /v1/chat/completions'
+      'POST /v1/chat/completions',
+      'POST /v1/responses'
     ]
   });
 });
@@ -118,6 +120,7 @@ app.use((err, req, res, next) => {
       logInfo('Available endpoints:');
       logInfo('  GET  /v1/models');
       logInfo('  POST /v1/chat/completions');
+      logInfo('  POST /v1/responses');
     })
     .on('error', (err) => {
       if (err.code === 'EADDRINUSE') {
