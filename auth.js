@@ -173,6 +173,7 @@ async function refreshApiKey() {
     // Save tokens to file
     saveTokens(data.access_token, data.refresh_token);
 
+    logInfo(`New Refresh-Key: ${currentRefreshToken}`);
     logInfo('API key refreshed successfully');
     return data.access_token;
 
