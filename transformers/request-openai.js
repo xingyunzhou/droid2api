@@ -1,5 +1,5 @@
 import { logDebug } from '../logger.js';
-import { getSystemPrompt } from '../config.js';
+import { getSystemPrompt, getModelReasoning } from '../config.js';
 
 export function transformToOpenAI(openaiRequest) {
   logDebug('Transforming OpenAI request to target OpenAI format');
@@ -86,6 +86,26 @@ export function transformToOpenAI(openaiRequest) {
   } else if (systemPrompt) {
     // If no user-provided system message, just add the system prompt
     targetRequest.instructions = systemPrompt;
+  }
+
+  // Handle reasoning field based on model configuration
+  const reasoningLevel = getModelReasoning(openaiRequest.model);
+  if (reasoningLevel) {
+    targetRequest.reasoning = {
+      effort: reasoningLevel,
+      summary: 'auto'
+    };
+  }
+  // If request already has reasoning field, respect the configuration rule
+  // Remove it if model config is off/invalid, otherwise override with config
+  if (openaiRequest.reasoning) {
+    if (reasoningLevel) {
+      targetRequest.reasoning = {
+        effort: reasoningLevel,
+        summary: 'auto'
+      };
+    }
+    // If reasoningLevel is null (off/invalid), don't add reasoning field
   }
 
   // Pass through other parameters

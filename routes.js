@@ -1,6 +1,6 @@
 import express from 'express';
 import fetch from 'node-fetch';
-import { getConfig, getModelById, getEndpointByType, getSystemPrompt } from './config.js';
+import { getConfig, getModelById, getEndpointByType, getSystemPrompt, getModelReasoning } from './config.js';
 import { logInfo, logDebug, logError, logRequest, logResponse } from './logger.js';
 import { transformToAnthropic, getAnthropicHeaders } from './transformers/request-anthropic.js';
 import { transformToOpenAI, getOpenAIHeaders } from './transformers/request-openai.js';
@@ -90,7 +90,7 @@ async function handleChatCompletions(req, res) {
     if (model.type === 'anthropic') {
       transformedRequest = transformToAnthropic(openaiRequest);
       const isStreaming = openaiRequest.stream !== false;
-      headers = getAnthropicHeaders(authHeader, clientHeaders, isStreaming);
+      headers = getAnthropicHeaders(authHeader, clientHeaders, isStreaming, modelId);
     } else if (model.type === 'openai') {
       transformedRequest = transformToOpenAI(openaiRequest);
       headers = getOpenAIHeaders(authHeader, clientHeaders);
@@ -236,6 +236,18 @@ async function handleDirectResponses(req, res) {
       }
     }
 
+    // 处理reasoning字段
+    const reasoningLevel = getModelReasoning(modelId);
+    if (reasoningLevel) {
+      modifiedRequest.reasoning = {
+        effort: reasoningLevel,
+        summary: 'auto'
+      };
+    } else {
+      // 如果配置是off或无效，移除reasoning字段
+      delete modifiedRequest.reasoning;
+    }
+
     logRequest('POST', endpoint.base_url, headers, modifiedRequest);
 
     // 转发修改后的请求
@@ -339,7 +351,7 @@ async function handleDirectMessages(req, res) {
     
     // 获取 headers
     const isStreaming = anthropicRequest.stream !== false;
-    const headers = getAnthropicHeaders(authHeader, clientHeaders, isStreaming);
+    const headers = getAnthropicHeaders(authHeader, clientHeaders, isStreaming, modelId);
 
     // 注入系统提示到 system 字段
     const systemPrompt = getSystemPrompt();
@@ -357,6 +369,24 @@ async function handleDirectMessages(req, res) {
           { type: 'text', text: systemPrompt }
         ];
       }
+    }
+
+    // 处理thinking字段
+    const reasoningLevel = getModelReasoning(modelId);
+    if (reasoningLevel) {
+      const budgetTokens = {
+        'low': 4096,
+        'medium': 12288,
+        'high': 24576
+      };
+      
+      modifiedRequest.thinking = {
+        type: 'enabled',
+        budget_tokens: budgetTokens[reasoningLevel]
+      };
+    } else {
+      // 如果配置是off或无效，移除thinking字段
+      delete modifiedRequest.thinking;
     }
 
     logRequest('POST', endpoint.base_url, headers, modifiedRequest);

@@ -49,3 +49,15 @@ export function getSystemPrompt() {
   const cfg = getConfig();
   return cfg.system_prompt || '';
 }
+
+export function getModelReasoning(modelId) {
+  const model = getModelById(modelId);
+  if (!model || !model.reasoning) {
+    return null;
+  }
+  const reasoningLevel = model.reasoning.toLowerCase();
+  if (['low', 'medium', 'high'].includes(reasoningLevel)) {
+    return reasoningLevel;
+  }
+  return null;
+}

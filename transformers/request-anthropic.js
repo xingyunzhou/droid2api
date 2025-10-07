@@ -1,5 +1,5 @@
 import { logDebug } from '../logger.js';
-import { getSystemPrompt } from '../config.js';
+import { getSystemPrompt, getModelReasoning } from '../config.js';
 
 export function transformToAnthropic(openaiRequest) {
   logDebug('Transforming OpenAI request to Anthropic format');
@@ -107,6 +107,38 @@ export function transformToAnthropic(openaiRequest) {
     });
   }
 
+  // Handle thinking field based on model configuration
+  const reasoningLevel = getModelReasoning(openaiRequest.model);
+  if (reasoningLevel) {
+    const budgetTokens = {
+      'low': 4096,
+      'medium': 12288,
+      'high': 24576
+    };
+    
+    anthropicRequest.thinking = {
+      type: 'enabled',
+      budget_tokens: budgetTokens[reasoningLevel]
+    };
+  }
+  // If request already has thinking field, respect the configuration rule
+  // Remove it if model config is off/invalid, otherwise override with config
+  if (openaiRequest.thinking) {
+    if (reasoningLevel) {
+      const budgetTokens = {
+        'low': 4096,
+        'medium': 12288,
+        'high': 24576
+      };
+      
+      anthropicRequest.thinking = {
+        type: 'enabled',
+        budget_tokens: budgetTokens[reasoningLevel]
+      };
+    }
+    // If reasoningLevel is null (off/invalid), don't add thinking field
+  }
+
   // Pass through other compatible parameters
   if (openaiRequest.temperature !== undefined) {
     anthropicRequest.temperature = openaiRequest.temperature;
@@ -124,7 +156,7 @@ export function transformToAnthropic(openaiRequest) {
   return anthropicRequest;
 }
 
-export function getAnthropicHeaders(authHeader, clientHeaders = {}, isStreaming = true) {
+export function getAnthropicHeaders(authHeader, clientHeaders = {}, isStreaming = true, modelId = null) {
   // Generate unique IDs if not provided
   const sessionId = clientHeaders['x-session-id'] || generateUUID();
   const messageId = clientHeaders['x-assistant-message-id'] || generateUUID();
@@ -133,7 +165,6 @@ export function getAnthropicHeaders(authHeader, clientHeaders = {}, isStreaming 
     'accept': 'application/json',
     'content-type': 'application/json',
     'anthropic-version': '2023-06-01',
-    'anthropic-beta': 'interleaved-thinking-2025-05-14',
     'x-api-key': 'placeholder',
     'authorization': authHeader || '',
     'x-api-provider': 'anthropic',
@@ -144,6 +175,33 @@ export function getAnthropicHeaders(authHeader, clientHeaders = {}, isStreaming 
     'x-stainless-timeout': '600',
     'connection': 'keep-alive'
   };
+
+  // Handle anthropic-beta header based on reasoning configuration
+  const reasoningLevel = modelId ? getModelReasoning(modelId) : null;
+  let betaValues = [];
+  
+  // Add existing beta values from client headers
+  if (clientHeaders['anthropic-beta']) {
+    const existingBeta = clientHeaders['anthropic-beta'];
+    betaValues = existingBeta.split(',').map(v => v.trim());
+  }
+  
+  // Handle thinking beta based on reasoning configuration
+  const thinkingBeta = 'interleaved-thinking-2025-05-14';
+  if (reasoningLevel) {
+    // Add thinking beta if not already present
+    if (!betaValues.includes(thinkingBeta)) {
+      betaValues.push(thinkingBeta);
+    }
+  } else {
+    // Remove thinking beta if reasoning is off/invalid
+    betaValues = betaValues.filter(v => v !== thinkingBeta);
+  }
+  
+  // Set anthropic-beta header if there are any values
+  if (betaValues.length > 0) {
+    headers['anthropic-beta'] = betaValues.join(', ');
+  }
 
   // Pass through Stainless SDK headers with defaults
   const stainlessDefaults = {
