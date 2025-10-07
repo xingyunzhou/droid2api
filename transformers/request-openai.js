@@ -1,4 +1,5 @@
 import { logDebug } from '../logger.js';
+import { getSystemPrompt } from '../config.js';
 
 export function transformToOpenAI(openaiRequest) {
   logDebug('Transforming OpenAI request to target OpenAI format');
@@ -66,18 +67,25 @@ export function transformToOpenAI(openaiRequest) {
     }));
   }
 
-  // Extract system message as instructions
+  // Extract system message as instructions and prepend system prompt
+  const systemPrompt = getSystemPrompt();
   const systemMessage = openaiRequest.messages?.find(m => m.role === 'system');
+  
   if (systemMessage) {
+    let userInstructions = '';
     if (typeof systemMessage.content === 'string') {
-      targetRequest.instructions = systemMessage.content;
+      userInstructions = systemMessage.content;
     } else if (Array.isArray(systemMessage.content)) {
-      targetRequest.instructions = systemMessage.content
+      userInstructions = systemMessage.content
         .filter(p => p.type === 'text')
         .map(p => p.text)
         .join('\n');
     }
+    targetRequest.instructions = systemPrompt + userInstructions;
     targetRequest.input = targetRequest.input.filter(m => m.role !== 'system');
+  } else if (systemPrompt) {
+    // If no user-provided system message, just add the system prompt
+    targetRequest.instructions = systemPrompt;
   }
 
   // Pass through other parameters
@@ -109,11 +117,11 @@ export function getOpenAIHeaders(authHeader, clientHeaders = {}) {
   const headers = {
     'content-type': 'application/json',
     'authorization': authHeader || '',
-    'x-api-key': 'placeholder',
+    'x-api-provider': 'azure_openai',
     'x-factory-client': 'cli',
     'x-session-id': sessionId,
     'x-assistant-message-id': messageId,
-    'user-agent': 'cB/JS 5.22.0',
+    'user-agent': 'pB/JS 5.23.2',
     'connection': 'keep-alive'
   };
 
@@ -124,7 +132,7 @@ export function getOpenAIHeaders(authHeader, clientHeaders = {}) {
     'x-stainless-os': 'MacOS',
     'x-stainless-runtime': 'node',
     'x-stainless-retry-count': '0',
-    'x-stainless-package-version': '5.22.0',
+    'x-stainless-package-version': '5.23.2',
     'x-stainless-runtime-version': 'v24.3.0'
   };
 
@@ -132,8 +140,6 @@ export function getOpenAIHeaders(authHeader, clientHeaders = {}) {
   Object.keys(stainlessDefaults).forEach(header => {
     headers[header] = clientHeaders[header] || stainlessDefaults[header];
   });
-
-
 
   return headers;
 }

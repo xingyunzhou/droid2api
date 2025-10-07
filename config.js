@@ -44,3 +44,8 @@ export function getPort() {
   const cfg = getConfig();
   return cfg.port || 3000;
 }
+
+export function getSystemPrompt() {
+  const cfg = getConfig();
+  return cfg.system_prompt || '';
+}

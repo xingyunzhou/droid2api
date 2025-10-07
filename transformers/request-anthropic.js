@@ -1,4 +1,5 @@
 import { logDebug } from '../logger.js';
+import { getSystemPrompt } from '../config.js';
 
 export function transformToAnthropic(openaiRequest) {
   logDebug('Transforming OpenAI request to Anthropic format');
@@ -77,9 +78,19 @@ export function transformToAnthropic(openaiRequest) {
     }
   }
 
-  // Add system parameter if system content exists
-  if (systemContent.length > 0) {
-    anthropicRequest.system = systemContent;
+  // Add system parameter with system prompt prepended
+  const systemPrompt = getSystemPrompt();
+  if (systemPrompt || systemContent.length > 0) {
+    anthropicRequest.system = [];
+    // Prepend system prompt as first element if it exists
+    if (systemPrompt) {
+      anthropicRequest.system.push({
+        type: 'text',
+        text: systemPrompt
+      });
+    }
+    // Add user-provided system content
+    anthropicRequest.system.push(...systemContent);
   }
 
   // Transform tools if present
@@ -125,11 +136,11 @@ export function getAnthropicHeaders(authHeader, clientHeaders = {}, isStreaming 
     'anthropic-beta': 'interleaved-thinking-2025-05-14',
     'x-api-key': 'placeholder',
     'authorization': authHeader || '',
-    'x-model-provider': 'anthropic',
+    'x-api-provider': 'anthropic',
     'x-factory-client': 'cli',
     'x-session-id': sessionId,
     'x-assistant-message-id': messageId,
-    'user-agent': 'a$/JS 0.57.0',
+    'user-agent': 'uX/JS 0.57.0',
     'x-stainless-timeout': '600',
     'connection': 'keep-alive'
   };

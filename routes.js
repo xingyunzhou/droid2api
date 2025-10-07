@@ -1,9 +1,10 @@
 import express from 'express';
 import fetch from 'node-fetch';
-import { getConfig, getModelById, getEndpointByType } from './config.js';
+import { getConfig, getModelById, getEndpointByType, getSystemPrompt } from './config.js';
 import { logInfo, logDebug, logError, logRequest, logResponse } from './logger.js';
 import { transformToAnthropic, getAnthropicHeaders } from './transformers/request-anthropic.js';
 import { transformToOpenAI, getOpenAIHeaders } from './transformers/request-openai.js';
+import { transformToCommon, getCommonHeaders } from './transformers/request-common.js';
 import { AnthropicResponseTransformer } from './transformers/response-anthropic.js';
 import { OpenAIResponseTransformer } from './transformers/response-openai.js';
 import { getApiKey } from './auth.js';
@@ -93,6 +94,9 @@ async function handleChatCompletions(req, res) {
     } else if (model.type === 'openai') {
       transformedRequest = transformToOpenAI(openaiRequest);
       headers = getOpenAIHeaders(authHeader, clientHeaders);
+    } else if (model.type === 'common') {
+      transformedRequest = transformToCommon(openaiRequest);
+      headers = getCommonHeaders(authHeader, clientHeaders);
     } else {
       return res.status(500).json({ error: `Unknown endpoint type: ${model.type}` });
     }
@@ -123,22 +127,37 @@ async function handleChatCompletions(req, res) {
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
 
-      let transformer;
-      if (model.type === 'anthropic') {
-        transformer = new AnthropicResponseTransformer(modelId, `chatcmpl-${Date.now()}`);
-      } else if (model.type === 'openai') {
-        transformer = new OpenAIResponseTransformer(modelId, `chatcmpl-${Date.now()}`);
-      }
-
-      try {
-        for await (const chunk of transformer.transformStream(response.body)) {
-          res.write(chunk);
+      // common 类型直接转发，不使用 transformer
+      if (model.type === 'common') {
+        try {
+          for await (const chunk of response.body) {
+            res.write(chunk);
+          }
+          res.end();
+          logInfo('Stream forwarded (common type)');
+        } catch (streamError) {
+          logError('Stream error', streamError);
+          res.end();
         }
-        res.end();
-        logInfo('Stream completed');
-      } catch (streamError) {
-        logError('Stream error', streamError);
-        res.end();
+      } else {
+        // anthropic 和 openai 类型使用 transformer
+        let transformer;
+        if (model.type === 'anthropic') {
+          transformer = new AnthropicResponseTransformer(modelId, `chatcmpl-${Date.now()}`);
+        } else if (model.type === 'openai') {
+          transformer = new OpenAIResponseTransformer(modelId, `chatcmpl-${Date.now()}`);
+        }
+
+        try {
+          for await (const chunk of transformer.transformStream(response.body)) {
+            res.write(chunk);
+          }
+          res.end();
+          logInfo('Stream completed');
+        } catch (streamError) {
+          logError('Stream error', streamError);
+          res.end();
+        }
       }
     } else {
       const data = await response.json();
@@ -201,16 +220,29 @@ async function handleDirectResponses(req, res) {
 
     const clientHeaders = req.headers;
     
-    // 获取 headers，但请求体不做任何转换
+    // 获取 headers
     const headers = getOpenAIHeaders(authHeader, clientHeaders);
 
-    logRequest('POST', endpoint.base_url, headers, openaiRequest);
+    // 注入系统提示到 instructions 字段
+    const systemPrompt = getSystemPrompt();
+    const modifiedRequest = { ...openaiRequest };
+    if (systemPrompt) {
+      // 如果已有 instructions，则在前面添加系统提示
+      if (modifiedRequest.instructions) {
+        modifiedRequest.instructions = systemPrompt + modifiedRequest.instructions;
+      } else {
+        // 否则直接设置系统提示
+        modifiedRequest.instructions = systemPrompt;
+      }
+    }
 
-    // 直接转发原始请求
+    logRequest('POST', endpoint.base_url, headers, modifiedRequest);
+
+    // 转发修改后的请求
     const response = await fetch(endpoint.base_url, {
       method: 'POST',
       headers,
-      body: JSON.stringify(openaiRequest)  // 不做任何转换，直接转发
+      body: JSON.stringify(modifiedRequest)
     });
 
     logInfo(`Response status: ${response.status}`);
@@ -305,17 +337,35 @@ async function handleDirectMessages(req, res) {
 
     const clientHeaders = req.headers;
     
-    // 获取 headers，但请求体不做任何转换
+    // 获取 headers
     const isStreaming = anthropicRequest.stream !== false;
     const headers = getAnthropicHeaders(authHeader, clientHeaders, isStreaming);
 
-    logRequest('POST', endpoint.base_url, headers, anthropicRequest);
+    // 注入系统提示到 system 字段
+    const systemPrompt = getSystemPrompt();
+    const modifiedRequest = { ...anthropicRequest };
+    if (systemPrompt) {
+      if (modifiedRequest.system && Array.isArray(modifiedRequest.system)) {
+        // 如果已有 system 数组，则在最前面插入系统提示
+        modifiedRequest.system = [
+          { type: 'text', text: systemPrompt },
+          ...modifiedRequest.system
+        ];
+      } else {
+        // 否则创建新的 system 数组
+        modifiedRequest.system = [
+          { type: 'text', text: systemPrompt }
+        ];
+      }
+    }
 
-    // 直接转发原始请求
+    logRequest('POST', endpoint.base_url, headers, modifiedRequest);
+
+    // 转发修改后的请求
     const response = await fetch(endpoint.base_url, {
       method: 'POST',
       headers,
-      body: JSON.stringify(anthropicRequest)  // 不做任何转换，直接转发
+      body: JSON.stringify(modifiedRequest)
     });
 
     logInfo(`Response status: ${response.status}`);

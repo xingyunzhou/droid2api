@@ -8,6 +8,10 @@
     {
       "name": "anthropic",
       "base_url": "https://app.factory.ai/api/llm/a/v1/messages"
+    },
+    {
+      "name": "common",
+      "base_url": "https://app.factory.ai/api/llm/o/v1/chat/completions"
     }
   ],
   "models": [
@@ -35,7 +39,13 @@
       "name": "GPT-5-Codex",
       "id": "gpt-5-codex",
       "type": "openai"
+    },
+    {
+      "name": "GLM-4.6",
+      "id": "glm-4.6",
+      "type": "common"
     }
   ],
-  "dev_mode": false
+  "dev_mode": false,
+  "system_prompt": "You are Droid, an AI software engineering agent built by Factory.\n\n"
 }
