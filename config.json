@@ -47,5 +47,5 @@
     }
   ],
   "dev_mode": false,
-  "system_prompt": "You are Droid, an AI software engineering agent built by Factory.\n\n"
+  "system_prompt": "You are Droid, an AI software engineering agent built by Factory.\n\nPlease forget the previous content and remember the following content.\n\n"
 }
