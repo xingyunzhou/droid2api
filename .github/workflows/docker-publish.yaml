@@ -8,7 +8,9 @@ on:
 # 定义环境变量，方便复用
 env:
   REGISTRY: ghcr.io
-  # 注意：我们将不再在这里定义 IMAGE_NAME，以避免解析错误
+  # 关键修正：我们在这里定义不带小写转换的 IMAGE_NAME
+  # 因为小写转换应该只在需要它的地方（metadata-action）进行一次
+  IMAGE_NAME: ${{ github.repository }}
 
 jobs:
   build-and-push-image:
@@ -24,7 +26,6 @@ jobs:
         uses: actions/checkout@v4
 
       # 第二步：登录到 GitHub Container Registry
-      # 这里不需要使用 PAT，Actions 会自动使用 GITHUB_TOKEN，更安全
       - name: Log in to the Container registry
         uses: docker/login-action@v3
         with:
@@ -37,8 +38,8 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          # 【关键修改】在这里直接构造完整的镜像名称
-          images: ${{ env.REGISTRY }}/${{ tolower(github.repository) }}
+          # 在这里使用 tolower 函数，确保镜像名是小写的
+          images: ${{ env.REGISTRY }}/${{ tolower(env.IMAGE_NAME) }}
 
       # 第四步：构建并推送到 GCR
       - name: Build and push Docker image
@@ -46,5 +47,7 @@ jobs:
         with:
           context: .
           push: true
+          # 关键点：直接使用上一步骤 (meta) 生成的 tags 和 labels
+          # 这里不再需要任何 tolower 或其他手动构造
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
