@@ -9,7 +9,7 @@ on:
 env:
   REGISTRY: ghcr.io
   # 格式为：你的GitHub用户名/你的仓库名 (全部小写)
-  IMAGE_NAME: ${{ lower(github.repository) }}
+  IMAGE_NAME: ${{ toLower(github.repository) }}
 
 jobs:
   build-and-push-image:
