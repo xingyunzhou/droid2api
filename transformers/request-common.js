@@ -1,5 +1,5 @@
 import { logDebug } from '../logger.js';
-import { getSystemPrompt } from '../config.js';
+import { getSystemPrompt, getUserAgent } from '../config.js';
 
 export function transformToCommon(openaiRequest) {
   logDebug('Transforming OpenAI request to Common format');
@@ -56,7 +56,7 @@ export function getCommonHeaders(authHeader, clientHeaders = {}) {
     'x-factory-client': 'cli',
     'x-session-id': sessionId,
     'x-assistant-message-id': messageId,
-    'user-agent': 'pB/JS 5.23.2',
+    'user-agent': getUserAgent(),
     'connection': 'keep-alive'
   };
 

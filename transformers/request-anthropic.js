@@ -1,5 +1,5 @@
 import { logDebug } from '../logger.js';
-import { getSystemPrompt, getModelReasoning } from '../config.js';
+import { getSystemPrompt, getModelReasoning, getUserAgent } from '../config.js';
 
 export function transformToAnthropic(openaiRequest) {
   logDebug('Transforming OpenAI request to Anthropic format');
@@ -171,7 +171,7 @@ export function getAnthropicHeaders(authHeader, clientHeaders = {}, isStreaming 
     'x-factory-client': 'cli',
     'x-session-id': sessionId,
     'x-assistant-message-id': messageId,
-    'user-agent': 'uX/JS 0.57.0',
+    'user-agent': getUserAgent(),
     'x-stainless-timeout': '600',
     'connection': 'keep-alive'
   };

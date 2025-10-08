@@ -61,3 +61,8 @@ export function getModelReasoning(modelId) {
   }
   return null;
 }
+
+export function getUserAgent() {
+  const cfg = getConfig();
+  return cfg.user_agent || 'factory-cli/0.19.3';
+}

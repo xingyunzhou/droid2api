@@ -1,5 +1,5 @@
 import { logDebug } from '../logger.js';
-import { getSystemPrompt, getModelReasoning } from '../config.js';
+import { getSystemPrompt, getModelReasoning, getUserAgent } from '../config.js';
 
 export function transformToOpenAI(openaiRequest) {
   logDebug('Transforming OpenAI request to target OpenAI format');
@@ -141,7 +141,7 @@ export function getOpenAIHeaders(authHeader, clientHeaders = {}) {
     'x-factory-client': 'cli',
     'x-session-id': sessionId,
     'x-assistant-message-id': messageId,
-    'user-agent': 'pB/JS 5.23.2',
+    'user-agent': getUserAgent(),
     'connection': 'keep-alive'
   };
 
