@@ -43,7 +43,7 @@
       "name": "GPT-5-Codex",
       "id": "gpt-5-codex",
       "type": "openai",
-      "reasoning": "high"
+      "reasoning": "off"
     },
     {
       "name": "GLM-4.6",

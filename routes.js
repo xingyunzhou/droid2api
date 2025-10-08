@@ -66,7 +66,7 @@ async function handleChatCompletions(req, res) {
     // Get API key (will auto-refresh if needed)
     let authHeader;
     try {
-      authHeader = await getApiKey();
+      authHeader = await getApiKey(req.headers.authorization);
     } catch (error) {
       logError('Failed to get API key', error);
       return res.status(500).json({ 
@@ -209,7 +209,7 @@ async function handleDirectResponses(req, res) {
     // Get API key
     let authHeader;
     try {
-      authHeader = await getApiKey();
+      authHeader = await getApiKey(req.headers.authorization);
     } catch (error) {
       logError('Failed to get API key', error);
       return res.status(500).json({ 
@@ -338,7 +338,7 @@ async function handleDirectMessages(req, res) {
     // Get API key
     let authHeader;
     try {
-      authHeader = await getApiKey();
+      authHeader = await getApiKey(req.headers.authorization);
     } catch (error) {
       logError('Failed to get API key', error);
       return res.status(500).json({ 

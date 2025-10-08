@@ -9,8 +9,9 @@ let currentApiKey = null;
 let currentRefreshToken = null;
 let lastRefreshTime = null;
 let clientId = null;
-let authSource = null; // 'env' or 'file'
+let authSource = null; // 'env' or 'file' or 'factory_key' or 'client'
 let authFilePath = null;
+let factoryApiKey = null; // From FACTORY_API_KEY environment variable
 
 const REFRESH_URL = 'https://api.workos.com/user_management/authenticate';
 const REFRESH_INTERVAL_HOURS = 6; // Refresh every 6 hours
@@ -57,19 +58,29 @@ function generateClientId() {
 }
 
 /**
- * Load initial refresh token from environment or config file
+ * Load auth configuration with priority system
+ * Priority: FACTORY_API_KEY > refresh token mechanism > client authorization
  */
-function loadRefreshToken() {
-  // 1. Check environment variable DROID_REFRESH_KEY
+function loadAuthConfig() {
+  // 1. Check FACTORY_API_KEY environment variable (highest priority)
+  const factoryKey = process.env.FACTORY_API_KEY;
+  if (factoryKey && factoryKey.trim() !== '') {
+    logInfo('Using fixed API key from FACTORY_API_KEY environment variable');
+    factoryApiKey = factoryKey.trim();
+    authSource = 'factory_key';
+    return { type: 'factory_key', value: factoryKey.trim() };
+  }
+
+  // 2. Check refresh token mechanism (DROID_REFRESH_KEY)
   const envRefreshKey = process.env.DROID_REFRESH_KEY;
   if (envRefreshKey && envRefreshKey.trim() !== '') {
     logInfo('Using refresh token from DROID_REFRESH_KEY environment variable');
     authSource = 'env';
     authFilePath = path.join(process.cwd(), 'auth.json');
-    return envRefreshKey.trim();
+    return { type: 'refresh', value: envRefreshKey.trim() };
   }
 
-  // 2. Check ~/.factory/auth.json
+  // 3. Check ~/.factory/auth.json
   const homeDir = os.homedir();
   const factoryAuthPath = path.join(homeDir, '.factory', 'auth.json');
   
@@ -88,37 +99,17 @@ function loadRefreshToken() {
           currentApiKey = authData.access_token.trim();
         }
         
-        return authData.refresh_token.trim();
+        return { type: 'refresh', value: authData.refresh_token.trim() };
       }
     }
   } catch (error) {
     logError('Error reading ~/.factory/auth.json', error);
   }
 
-  // 3. No refresh token found - throw error
-  const errorMessage = `
-╔════════════════════════════════════════════════════════════════╗
-║              Refresh Token Not Found                           ║
-╚════════════════════════════════════════════════════════════════╝
-
-No valid refresh token found. Please use one of the following methods:
-
-1. Set environment variable:
-   export DROID_REFRESH_KEY="your_refresh_token_here"
-
-2. Or ensure ~/.factory/auth.json exists with valid refresh_token:
-   {
-     "access_token": "your_access_token",
-     "refresh_token": "your_refresh_token"
-   }
-
-Current status:
-  - DROID_REFRESH_KEY: ${envRefreshKey ? 'empty or whitespace' : 'not set'}
-  - ~/.factory/auth.json: ${fs.existsSync(factoryAuthPath) ? 'exists but invalid/empty refresh_token' : 'not found'}
-`;
-
-  logError(errorMessage);
-  throw new Error('Refresh token not found. Please configure DROID_REFRESH_KEY or ~/.factory/auth.json');
+  // 4. No configured auth found - will use client authorization
+  logInfo('No auth configuration found, will use client authorization headers');
+  authSource = 'client';
+  return { type: 'client', value: null };
 }
 
 /**
@@ -235,14 +226,26 @@ function shouldRefresh() {
 }
 
 /**
- * Initialize auth system - load refresh token and get initial API key
+ * Initialize auth system - load auth config and setup initial API key if needed
  */
 export async function initializeAuth() {
   try {
-    currentRefreshToken = loadRefreshToken();
+    const authConfig = loadAuthConfig();
     
-    // Always refresh on startup to get fresh token
-    await refreshApiKey();
+    if (authConfig.type === 'factory_key') {
+      // Using fixed FACTORY_API_KEY, no refresh needed
+      logInfo('Auth system initialized with fixed API key');
+    } else if (authConfig.type === 'refresh') {
+      // Using refresh token mechanism
+      currentRefreshToken = authConfig.value;
+      
+      // Always refresh on startup to get fresh token
+      await refreshApiKey();
+      logInfo('Auth system initialized with refresh token mechanism');
+    } else {
+      // Using client authorization, no setup needed
+      logInfo('Auth system initialized for client authorization mode');
+    }
     
     logInfo('Auth system initialized successfully');
   } catch (error) {
@@ -252,18 +255,36 @@ export async function initializeAuth() {
 }
 
 /**
- * Get API key, refresh if needed
+ * Get API key based on configured authorization method
+ * @param {string} clientAuthorization - Authorization header from client request (optional)
  */
-export async function getApiKey() {
-  // Check if we need to refresh
-  if (shouldRefresh()) {
-    logInfo('API key needs refresh (6+ hours old)');
-    await refreshApiKey();
+export async function getApiKey(clientAuthorization = null) {
+  // Priority 1: FACTORY_API_KEY environment variable
+  if (authSource === 'factory_key' && factoryApiKey) {
+    return `Bearer ${factoryApiKey}`;
   }
+  
+  // Priority 2: Refresh token mechanism
+  if (authSource === 'env' || authSource === 'file') {
+    // Check if we need to refresh
+    if (shouldRefresh()) {
+      logInfo('API key needs refresh (6+ hours old)');
+      await refreshApiKey();
+    }
 
-  if (!currentApiKey) {
-    throw new Error('No API key available. Please initialize auth system first.');
+    if (!currentApiKey) {
+      throw new Error('No API key available from refresh token mechanism.');
+    }
+
+    return `Bearer ${currentApiKey}`;
   }
-
-  return `Bearer ${currentApiKey}`;
+  
+  // Priority 3: Client authorization header
+  if (clientAuthorization) {
+    logDebug('Using client authorization header');
+    return clientAuthorization;
+  }
+  
+  // No authorization available
+  throw new Error('No authorization available. Please configure FACTORY_API_KEY, refresh token, or provide client authorization.');
 }

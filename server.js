@@ -110,7 +110,8 @@ app.use((err, req, res, next) => {
     logInfo('Configuration loaded successfully');
     logInfo(`Dev mode: ${isDevMode()}`);
     
-    // Initialize auth system (load and refresh API key)
+    // Initialize auth system (load and setup API key if needed)
+    // This won't throw error if no auth config is found - will use client auth
     await initializeAuth();
     
     const PORT = getPort();
