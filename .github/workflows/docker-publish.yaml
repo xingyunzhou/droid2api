@@ -8,8 +8,7 @@ on:
 # 定义环境变量，方便复用
 env:
   REGISTRY: ghcr.io
-  # 格式为：你的GitHub用户名/你的仓库名 (全部小写)
-  IMAGE_NAME: ${{ tolower(github.repository) }}
+  # 注意：我们将不再在这里定义 IMAGE_NAME，以避免解析错误
 
 jobs:
   build-and-push-image:
@@ -38,7 +37,8 @@ jobs:
         id: meta
         uses: docker/metadata-action@v5
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          # 【关键修改】在这里直接构造完整的镜像名称
+          images: ${{ env.REGISTRY }}/${{ tolower(github.repository) }}
 
       # 第四步：构建并推送到 GCR
       - name: Build and push Docker image
