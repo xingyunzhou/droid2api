@@ -4,11 +4,12 @@ OpenAI 兼容的 API 代理服务器，统一访问不同的 LLM 模型。
 
 ## 核心功能
 
-### 🔐 令牌定时刷新
-- **自动管理访问令牌** - 无需手动更新，系统每6小时自动刷新
-- **多种配置方式** - 支持环境变量或配置文件设置
-- **WorkOS OAuth集成** - 使用refresh_token自动获取新的access_token
-- **故障恢复** - 令牌过期时自动重试和恢复
+### 🔐 双重授权机制
+- **FACTORY_API_KEY优先级** - 环境变量设置固定API密钥，跳过自动刷新
+- **令牌自动刷新** - WorkOS OAuth集成，系统每6小时自动刷新access_token
+- **客户端授权回退** - 无配置时使用客户端请求头的authorization字段
+- **智能优先级** - FACTORY_API_KEY > refresh_token > 客户端authorization
+- **容错启动** - 无任何认证配置时不报错，继续运行支持客户端授权
 
 ### 🧠 模型推理能力级别
 - **四档推理级别** - off/low/medium/high，精确控制模型思考深度
@@ -54,19 +55,25 @@ npm install
 
 ## 快速开始
 
-### 1. 配置认证
+### 1. 配置认证（三种方式）
 
-设置环境变量或配置文件：
+**优先级：FACTORY_API_KEY > refresh_token > 客户端authorization**
 
 ```bash
-# 方式1：环境变量
+# 方式1：固定API密钥（最高优先级）
+export FACTORY_API_KEY="your_factory_api_key_here"
+
+# 方式2：自动刷新令牌
 export DROID_REFRESH_KEY="your_refresh_token_here"
 
-# 方式2：配置文件 ~/.factory/auth.json
+# 方式3：配置文件 ~/.factory/auth.json
 {
-  "access_token": "your_access_token",
+  "access_token": "your_access_token", 
   "refresh_token": "your_refresh_token"
 }
+
+# 方式4：无配置（客户端授权）
+# 服务器将使用客户端请求头中的authorization字段
 ```
 
 ### 2. 配置模型（可选）
@@ -255,6 +262,31 @@ curl http://localhost:3000/v1/chat/completions \
 - `temperature` - 温度参数（0-1）
 
 ## 常见问题
+
+### 如何配置授权机制？
+
+droid2api支持三级授权优先级：
+
+1. **FACTORY_API_KEY**（最高优先级）
+   ```bash
+   export FACTORY_API_KEY="your_api_key"
+   ```
+   使用固定API密钥，停用自动刷新机制。
+
+2. **refresh_token机制**
+   ```bash
+   export DROID_REFRESH_KEY="your_refresh_token"
+   ```
+   自动刷新令牌，每6小时更新一次。
+
+3. **客户端授权**（fallback）
+   无需配置，直接使用客户端请求头的authorization字段。
+
+### 什么时候使用FACTORY_API_KEY？
+
+- **开发环境** - 使用固定密钥避免令牌过期问题
+- **CI/CD流水线** - 稳定的认证，不依赖刷新机制
+- **临时测试** - 快速设置，无需配置refresh_token
 
 ### 如何配置推理级别？
 
