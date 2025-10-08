@@ -1,0 +1,50 @@
+name: Build and Push Docker Image
+
+# 当代码被推送到 main 分支时触发
+on:
+  push:
+    branches: [ "main" ]
+
+# 定义环境变量，方便复用
+env:
+  REGISTRY: ghcr.io
+  # 格式为：你的GitHub用户名/你的仓库名 (全部小写)
+  IMAGE_NAME: ${{ lower(github.repository) }}
+
+jobs:
+  build-and-push-image:
+    runs-on: ubuntu-latest
+    # 需要赋予 GITHUB_TOKEN 写包的权限
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      # 第一步：检出代码
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # 第二步：登录到 GitHub Container Registry
+      # 这里不需要使用 PAT，Actions 会自动使用 GITHUB_TOKEN，更安全
+      - name: Log in to the Container registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # 第三步：从镜像名和 git ref 中提取元数据（标签等）
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+
+      # 第四步：构建并推送到 GCR
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
