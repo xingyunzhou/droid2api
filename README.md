@@ -40,9 +40,17 @@ OpenAI 兼容的 API 代理服务器，统一访问不同的 LLM 模型。
 
 ## 安装
 
+安装项目依赖：
+
 ```bash
 npm install
 ```
+
+**依赖说明**：
+- `express` - Web服务器框架
+- `node-fetch` - HTTP请求库
+
+> 💡 **首次使用必须执行 `npm install`**，之后只需要 `npm start` 启动服务即可。
 
 ## 快速开始
 
