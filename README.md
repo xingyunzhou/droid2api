@@ -129,14 +129,21 @@ export DROID_REFRESH_KEY="your_refresh_token_here"
 
 ### 启动服务器
 
+**方式1：使用npm命令**
 ```bash
 npm start
 ```
 
-或使用快捷脚本：
+**方式2：使用启动脚本**
 
+Linux/macOS：
 ```bash
 ./start.sh
+```
+
+Windows：
+```cmd
+start.bat
 ```
 
 服务器默认运行在 `http://localhost:3000`。
