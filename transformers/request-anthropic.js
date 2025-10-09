@@ -162,8 +162,9 @@ export function getAnthropicHeaders(authHeader, clientHeaders = {}, isStreaming 
   const headers = {
     'accept': 'application/json',
     'content-type': 'application/json',
-    'anthropic-version': '2023-06-01',
-    'x-api-key': 'placeholder',
+    'anthropic-version': clientHeaders['anthropic-version'] || '2023-06-01',
+    // Prefer client-provided x-api-key for anthropic endpoint format
+    ...(clientHeaders['x-api-key'] ? { 'x-api-key': clientHeaders['x-api-key'] } : {}),
     'authorization': authHeader || '',
     'x-api-provider': 'anthropic',
     'x-factory-client': 'cli',
