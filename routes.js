@@ -11,6 +11,44 @@ import { getApiKey } from './auth.js';
 
 const router = express.Router();
 
+/**
+ * Convert a /v1/responses API result to a /v1/chat/completions-compatible format.
+ * Works for non-streaming responses.
+ */
+function convertResponseToChatCompletion(resp) {
+  if (!resp || typeof resp !== 'object') {
+    throw new Error('Invalid response object');
+  }
+
+  const outputMsg = (resp.output || []).find(o => o.type === 'message');
+  const textBlocks = outputMsg?.content?.filter(c => c.type === 'output_text') || [];
+  const content = textBlocks.map(c => c.text).join('');
+
+  const chatCompletion = {
+    id: resp.id ? resp.id.replace(/^resp_/, 'chatcmpl-') : `chatcmpl-${Date.now()}`,
+    object: 'chat.completion',
+    created: resp.created_at || Math.floor(Date.now() / 1000),
+    model: resp.model || 'unknown-model',
+    choices: [
+      {
+        index: 0,
+        message: {
+          role: outputMsg?.role || 'assistant',
+          content: content || ''
+        },
+        finish_reason: resp.status === 'completed' ? 'stop' : 'unknown'
+      }
+    ],
+    usage: {
+      prompt_tokens: resp.usage?.input_tokens ?? 0,
+      completion_tokens: resp.usage?.output_tokens ?? 0,
+      total_tokens: resp.usage?.total_tokens ?? 0
+    }
+  };
+
+  return chatCompletion;
+}
+
 router.get('/v1/models', (req, res) => {
   logInfo('GET /v1/models');
   
@@ -161,8 +199,21 @@ async function handleChatCompletions(req, res) {
       }
     } else {
       const data = await response.json();
-      logResponse(200, null, data);
-      res.json(data);
+      if (model.type === 'openai') {
+        try {
+          const converted = convertResponseToChatCompletion(data);
+          logResponse(200, null, converted);
+          res.json(converted);
+        } catch (e) {
+          // 如果转换失败，回退为原始数据
+          logResponse(200, null, data);
+          res.json(data);
+        }
+      } else {
+        // anthropic/common: 保持现有逻辑，直接转发
+        logResponse(200, null, data);
+        res.json(data);
+      }
     }
 
   } catch (error) {
