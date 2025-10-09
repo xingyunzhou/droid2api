@@ -163,9 +163,6 @@ export function getAnthropicHeaders(authHeader, clientHeaders = {}, isStreaming 
     'accept': 'application/json',
     'content-type': 'application/json',
     'anthropic-version': clientHeaders['anthropic-version'] || '2023-06-01',
-    // Prefer client-provided x-api-key for anthropic endpoint format
-    ...(clientHeaders['x-api-key'] ? { 'x-api-key': clientHeaders['x-api-key'] } : {}),
-    'authorization': authHeader || '',
     'x-api-provider': 'anthropic',
     'x-factory-client': 'cli',
     'x-session-id': sessionId,
@@ -174,6 +171,14 @@ export function getAnthropicHeaders(authHeader, clientHeaders = {}, isStreaming 
     'x-stainless-timeout': '600',
     'connection': 'keep-alive'
   };
+
+  // Prefer client-provided x-api-key for anthropic endpoint format
+  if (clientHeaders['x-api-key']) {
+    headers['x-api-key'] = clientHeaders['x-api-key'];
+  } else if (authHeader) {
+    // If no client x-api-key, use authorization header (from FACTORY_API_KEY or refresh token)
+    headers['authorization'] = authHeader;
+  }
 
   // Handle anthropic-beta header based on reasoning configuration
   const reasoningLevel = modelId ? getModelReasoning(modelId) : null;

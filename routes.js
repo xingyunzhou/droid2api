@@ -392,10 +392,13 @@ async function handleDirectMessages(req, res) {
 
     logInfo(`Direct forwarding to ${model.type} endpoint: ${endpoint.base_url}`);
 
-    // Get API key
+    // Get API key - support client x-api-key for anthropic endpoint
     let authHeader;
     try {
-      authHeader = await getApiKey(req.headers.authorization);
+      const clientAuthFromXApiKey = req.headers['x-api-key']
+        ? `Bearer ${req.headers['x-api-key']}`
+        : null;
+      authHeader = await getApiKey(req.headers.authorization || clientAuthFromXApiKey);
     } catch (error) {
       logError('Failed to get API key', error);
       return res.status(500).json({ 
