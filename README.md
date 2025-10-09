@@ -36,7 +36,7 @@ OpenAI 兼容的 API 代理服务器，统一访问不同的 LLM 模型。
 
 - 🎯 **标准 OpenAI API 接口** - 使用熟悉的 OpenAI API 格式访问所有模型
 - 🔄 **自动格式转换** - 自动处理不同 LLM 提供商的格式差异
-- 🌊 **流式响应支持** - 支持实时流式输出
+- 🌊 **智能流式处理** - 完全尊重客户端stream参数，支持流式和非流式响应
 - ⚙️ **灵活配置** - 通过配置文件自定义模型和端点
 
 ## 安装
@@ -240,8 +240,7 @@ curl http://localhost:3000/v1/models
 
 #### 对话补全
 
-使用标准 OpenAI 格式调用任何模型：
-
+**流式响应**（实时返回）：
 ```bash
 curl http://localhost:3000/v1/chat/completions \
   -H "Content-Type: application/json" \
@@ -254,10 +253,26 @@ curl http://localhost:3000/v1/chat/completions \
   }'
 ```
 
+**非流式响应**（等待完整结果）：
+```bash
+curl http://localhost:3000/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-opus-4-1-20250805",
+    "messages": [
+      {"role": "user", "content": "你好"}
+    ],
+    "stream": false
+  }'
+```
+
 **支持的参数：**
 - `model` - 模型 ID（必需）
 - `messages` - 对话消息数组（必需）
-- `stream` - 是否流式输出（默认 true）
+- `stream` - 流式输出控制（可选）
+  - `true` - 启用流式响应，实时返回内容
+  - `false` - 禁用流式响应，等待完整结果
+  - 未指定 - 由服务器端决定默认行为
 - `max_tokens` - 最大输出长度
 - `temperature` - 温度参数（0-1）
 
@@ -287,6 +302,14 @@ droid2api支持三级授权优先级：
 - **开发环境** - 使用固定密钥避免令牌过期问题
 - **CI/CD流水线** - 稳定的认证，不依赖刷新机制
 - **临时测试** - 快速设置，无需配置refresh_token
+
+### 如何控制流式和非流式响应？
+
+droid2api完全尊重客户端的stream参数设置：
+
+- **`"stream": true`** - 启用流式响应，内容实时返回
+- **`"stream": false`** - 禁用流式响应，等待完整结果后返回
+- **不设置stream** - 由服务器端决定默认行为，不强制转换
 
 ### 如何配置推理级别？
 
