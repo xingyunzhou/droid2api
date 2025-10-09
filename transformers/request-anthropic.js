@@ -113,7 +113,14 @@ export function transformToAnthropic(openaiRequest) {
 
   // Handle thinking field based on model configuration
   const reasoningLevel = getModelReasoning(openaiRequest.model);
-  if (reasoningLevel) {
+  if (reasoningLevel === 'auto') {
+    // Auto mode: preserve original request's thinking field exactly as-is
+    if (openaiRequest.thinking !== undefined) {
+      anthropicRequest.thinking = openaiRequest.thinking;
+    }
+    // If original request has no thinking field, don't add one
+  } else if (reasoningLevel && ['low', 'medium', 'high'].includes(reasoningLevel)) {
+    // Specific level: override with model configuration
     const budgetTokens = {
       'low': 4096,
       'medium': 12288,
@@ -125,7 +132,7 @@ export function transformToAnthropic(openaiRequest) {
       budget_tokens: budgetTokens[reasoningLevel]
     };
   } else {
-    // If reasoning is off or invalid, explicitly remove thinking field
+    // Off or invalid: explicitly remove thinking field
     // This ensures any thinking field from the original request is deleted
     delete anthropicRequest.thinking;
   }
@@ -179,7 +186,10 @@ export function getAnthropicHeaders(authHeader, clientHeaders = {}, isStreaming 
   
   // Handle thinking beta based on reasoning configuration
   const thinkingBeta = 'interleaved-thinking-2025-05-14';
-  if (reasoningLevel) {
+  if (reasoningLevel === 'auto') {
+    // Auto mode: don't modify anthropic-beta header, preserve original
+    // betaValues remain unchanged from client headers
+  } else if (reasoningLevel && ['low', 'medium', 'high'].includes(reasoningLevel)) {
     // Add thinking beta if not already present
     if (!betaValues.includes(thinkingBeta)) {
       betaValues.push(thinkingBeta);
