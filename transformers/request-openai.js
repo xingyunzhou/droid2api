@@ -7,9 +7,13 @@ export function transformToOpenAI(openaiRequest) {
   const targetRequest = {
     model: openaiRequest.model,
     input: [],
-    store: false,
-    stream: openaiRequest.stream !== false
+    store: false
   };
+
+  // Only add stream parameter if explicitly provided by client
+  if (openaiRequest.stream !== undefined) {
+    targetRequest.stream = openaiRequest.stream;
+  }
 
   // Transform max_tokens to max_output_tokens
   if (openaiRequest.max_tokens) {

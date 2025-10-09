@@ -89,7 +89,7 @@ async function handleChatCompletions(req, res) {
 
     if (model.type === 'anthropic') {
       transformedRequest = transformToAnthropic(openaiRequest);
-      const isStreaming = openaiRequest.stream !== false;
+      const isStreaming = openaiRequest.stream === true;
       headers = getAnthropicHeaders(authHeader, clientHeaders, isStreaming, modelId);
     } else if (model.type === 'openai') {
       transformedRequest = transformToOpenAI(openaiRequest);
@@ -120,7 +120,7 @@ async function handleChatCompletions(req, res) {
       });
     }
 
-    const isStreaming = transformedRequest.stream !== false;
+    const isStreaming = transformedRequest.stream === true;
 
     if (isStreaming) {
       res.setHeader('Content-Type', 'text/event-stream');
@@ -268,7 +268,7 @@ async function handleDirectResponses(req, res) {
       });
     }
 
-    const isStreaming = openaiRequest.stream !== false;
+    const isStreaming = openaiRequest.stream === true;
 
     if (isStreaming) {
       // 直接转发流式响应，不做任何转换
@@ -350,7 +350,7 @@ async function handleDirectMessages(req, res) {
     const clientHeaders = req.headers;
     
     // 获取 headers
-    const isStreaming = anthropicRequest.stream !== false;
+    const isStreaming = anthropicRequest.stream === true;
     const headers = getAnthropicHeaders(authHeader, clientHeaders, isStreaming, modelId);
 
     // 注入系统提示到 system 字段

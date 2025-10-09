@@ -6,9 +6,13 @@ export function transformToAnthropic(openaiRequest) {
   
   const anthropicRequest = {
     model: openaiRequest.model,
-    messages: [],
-    stream: openaiRequest.stream !== false
+    messages: []
   };
+
+  // Only add stream parameter if explicitly provided by client
+  if (openaiRequest.stream !== undefined) {
+    anthropicRequest.stream = openaiRequest.stream;
+  }
 
   // Handle max_tokens
   if (openaiRequest.max_tokens) {
